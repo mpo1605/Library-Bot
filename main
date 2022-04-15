@@ -46,7 +46,7 @@ def bot_message(message):
     elif message.text == "⏪назад":
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         find = types.KeyboardButton("📚Найти книгу")
-        mark = types.KeyboardButton("🌟Оставить оценку")
+        mark = types.KeyboardButton("🌟Оставить оценку") 
         rating = types.KeyboardButton("📊Рейтинг")
         rand = types.KeyboardButton("🎲Случайная книга")
         help = types.KeyboardButton('❓Помощь и предложения')
