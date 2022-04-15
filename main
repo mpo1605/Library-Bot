@@ -1,0 +1,817 @@
+import random
+import telebot
+from telebot import types
+import codecs
+import time
+if_not_book = "Если вы искали другую книгу, пожалуйста, уточните ваш запрос"
+quantity = 996
+command_list = '📚Найти книгу - С помощью этой команды вы сможете узнать статус выбранной вами книги либо в конкретной библиотеке, либо во всех библиотеках города сразу.\n\n🌟Оставить оценку - Возможно, прочитав книгу, вы захотите оставить свою оценку о ней. Здесь вы сможете оценить одну из книг и помочь другим читателям найти для себя что-то очень интересное.\n\n📊Рейтинг - Если вы сомневаетесь, что именно вам стоит почитать, вы можете воспользоваться рейтингом книг, составленным другими пользователями бота.\n\n🎲Случайная книга - Если вы не знаете, какую именно книгу вам прочитать, я могу подобрать для вас интересную книгу.\n\n🎯Викторина - Бывает такое, что после прочтения, через некоторое время, забывается содержание книги. Мы создали для вас тест, пройдя который вы сможете проверить закрепленность своих знаний или узнать о новой для вас книги.\n\n❓Помощь и  предложения - Здесь вы увидите советы по решению наиболее распространенных проблем, сможете самостоятельно задать вопрос разработчикам бота, а также предложить свои идеи для развития и продвижения данного проекта'
+bot = telebot.TeleBot("5131160257:AAF-vANgZy9dmMeRWmlf4_hX5PxqZDzLfN4")
+
+@bot.message_handler(commands = ["start", "help"])
+def start(message):
+    if message.text == "/start":
+        msg = "Привет, " + message.from_user.first_name + "!\nВас приветствует многофункциональный бот-библиотекарь, который станет вашим проводником в обширном мире книг."
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        find = types.KeyboardButton("📚Найти книгу")
+        mark = types.KeyboardButton("🌟Оставить оценку")
+        rating = types.KeyboardButton("📊Рейтинг")
+        rand = types.KeyboardButton("🎲Случайная книга")
+        help = types.KeyboardButton('❓Помощь и предложения')
+        game = types.KeyboardButton('🎯Викторина')
+        markup.add(find, mark, rating, rand, game)
+        markup.add(help)
+        bot.send_message(message.chat.id, msg, reply_markup=markup)
+        time.sleep(2)
+        bot.send_message(message.chat.id, "Что я умею?\n\n\n" + command_list + '\n\nПриятного пользования😉')
+    if message.text == "/help":
+        bot.send_message(message.chat.id, 'Список доступных функций:\n\n' + command_list)
+
+@bot.message_handler(content_types=['text'])
+def bot_message(message):
+    if message.text == "📚Найти книгу" or message.text == "🔄Попробовать еще раз":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        push = types.KeyboardButton("Библиотека им. Пушкина")
+        herz = types.KeyboardButton("Библиотека им. Герцена")
+        gork = types.KeyboardButton("Библиотека им. Горького")
+        any = types.KeyboardButton("🏛Искать во всех библиотеках")
+        back = types.KeyboardButton("⏪назад")
+        markup.add(push)
+        markup.add(herz)
+        markup.add(gork)
+        markup.add(any)
+        markup.add(back)
+        bot.send_message(message.chat.id, "Выберите библиотеку, в которой вы хотели бы найти книгу", reply_markup=markup)
+        bot.register_next_step_handler(message, choose_library)
+    elif message.text == "⏪назад":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        find = types.KeyboardButton("📚Найти книгу")
+        mark = types.KeyboardButton("🌟Оставить оценку")
+        rating = types.KeyboardButton("📊Рейтинг")
+        rand = types.KeyboardButton("🎲Случайная книга")
+        help = types.KeyboardButton('❓Помощь и предложения')
+        game = types.KeyboardButton('🎯Викторина')
+        markup.add(find, mark, rating, rand, game)
+        markup.add(help)
+        bot.send_message(message.chat.id, "Вы снова в главном меню", reply_markup=markup)
+    elif message.text == "🌟Оставить оценку":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        back = types.KeyboardButton("⏪назад")
+        markup.add(back)
+        bot.send_message(message.chat.id, "Введите название книги", reply_markup=markup)
+        bot.register_next_step_handler(message, set_rating)
+    elif message.text == "📊Рейтинг" or message.text == "🔄Выбрать другую категорию":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        popular = types.KeyboardButton("👥Самые популярные")
+        best = types.KeyboardButton("🎖Самые лучшие")
+        back = types.KeyboardButton("⏪назад")
+        markup.add(best, popular, back)
+        bot.send_message(message.chat.id, "Выберите категорию:\n\n🎖Самые лучшие - книги с самой высокой средней оценкой\n\n👥Самые популярные - книги с самым большим количеством оценок", reply_markup=markup)
+        bot.register_next_step_handler(message, show_rating)
+    elif message.text == "🎲Случайная книга" or message.text == "📖Получить новую книгу":
+        rate = open("rating.txt", encoding='utf-8')
+        author_list = []
+        name_list = []
+        rate_list = []
+        cnt_list = []
+        for i in range(quantity):
+            author, name, rates, cnt = rate.readline().split('"')
+            author_list += [author]
+            name_list += [name]
+            rate_list += [rates]
+            cnt_list += [cnt]
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        new_random = types.KeyboardButton("📖Получить новую книгу")
+        back = types.KeyboardButton("⏪назад")
+        markup.add(new_random, back)
+        n = random.randint(0, quantity-1)
+        bot.send_message(message.chat.id, "Хмммм...🧐\nЯ бы посоветовал вам прочитать следущую книгу: " + author_list[n] + ", " + name_list[n], reply_markup=markup)
+        bot.register_next_step_handler(message, bot_message)
+    elif message.text == "🎯Викторина":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        game = types.KeyboardButton("🎮Играть")
+        top = types.KeyboardButton("✨Топ игроков")
+        back = types.KeyboardButton("⏪назад")
+        markup.add(game, top, back)
+        bot.send_message(message.chat.id, "Добро пожаловать в раздел викторина! Здесь вы можете пройти тест из 10 вопросов, где вам будет необоходимо узнать книгу по ее краткому описанию. \n\nВнимание! Вы не сможете выйти в главное меню, пока не пройдете тест до конца!", reply_markup=markup)
+        bot.register_next_step_handler(message, game1)
+    elif message.text == "❓Помощь и предложения":
+        bot.send_message(message.chat.id, "Если вы хотите задать какой-то вопрос разработчикам, вы можете сделать это в нашем телеграм-канале: https://t.me/mpo_LibraryBot")
+
+def choose_library(message):
+    global name_list, author_list, date_list
+    if message.text == "⏪назад":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        find = types.KeyboardButton("📚Найти книгу")
+        mark = types.KeyboardButton("🌟Оставить оценку")
+        rating = types.KeyboardButton("📊Рейтинг")
+        rand = types.KeyboardButton("🎲Случайная книга")
+        help = types.KeyboardButton('❓Помощь и предложения')
+        game = types.KeyboardButton('🎯Викторина')
+        markup.add(find, mark, rating, rand, game)
+        markup.add(help)
+        bot.send_message(message.chat.id, "Вы снова в главном меню", reply_markup=markup)
+    elif message.text == "Библиотека им. Пушкина":
+        biblio = codecs.open("biblio_pushkin.txt", encoding='utf-8')
+        author_list = []
+        name_list = []
+        date_list = []
+        for i in range(quantity):
+            author, name, date = biblio.readline().split('"')
+            author_list += [author]
+            name_list += [name]
+            date_list += [date]
+        k = 0
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        back = types.KeyboardButton("⏪назад")
+        markup.add(back)
+        bot.send_message(message.chat.id, "Введите название книги, о состоянии которой вы хотели бы узнать", reply_markup=markup)
+        bot.register_next_step_handler(message, get_book_pushkin)
+
+    elif message.text == "Библиотека им. Герцена":
+        biblio = codecs.open("biblio_herzen.txt", encoding='utf-8')
+        author_list = []
+        name_list = []
+        date_list = []
+        for i in range(quantity):
+            author, name, date = biblio.readline().split('"')
+            author_list += [author]
+            name_list += [name]
+            date_list += [date]
+        k = 0
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        back = types.KeyboardButton("⏪назад")
+        markup.add(back)
+        bot.send_message(message.chat.id, "Введите название книги, о состоянии которой вы хотели бы узнать", reply_markup=markup)
+        bot.register_next_step_handler(message, get_book_herzen)
+
+    elif message.text == "Библиотека им. Горького":
+        biblio = codecs.open("biblio_gorkov.txt", encoding='utf-8')
+        author_list = []
+        name_list = []
+        date_list = []
+        for i in range(quantity):
+            author, name, date = biblio.readline().split('"')
+            author_list += [author]
+            name_list += [name]
+            date_list += [date]
+        k = 0
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        back = types.KeyboardButton("⏪назад")
+        markup.add(back)
+        bot.send_message(message.chat.id, "Введите название книги, о состоянии которой вы хотели бы узнать", reply_markup=markup)
+        bot.register_next_step_handler(message, get_book_gorkov)
+
+    elif message.text == "🏛Искать во всех библиотеках":
+        k = 0
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        back = types.KeyboardButton("⏪назад")
+        markup.add(back)
+        bot.send_message(message.chat.id, "Введите название книги, о состоянии которой вы хотели бы узнать", reply_markup=markup)
+        bot.register_next_step_handler(message, get_book_all)
+
+
+def get_book_pushkin(message):
+    for i in range(quantity):
+        if message.text == "⏪назад":
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            push = types.KeyboardButton("Библиотека им. Пушкина")
+            herz = types.KeyboardButton("Библиотека им. Герцена")
+            gork = types.KeyboardButton("Библиотека им. Горького")
+            any = types.KeyboardButton("🏛Искать во всех библиотеках")
+            back = types.KeyboardButton("⏪назад")
+            markup.add(push)
+            markup.add(herz)
+            markup.add(gork)
+            markup.add(any)
+            markup.add(back)
+            bot.send_message(message.chat.id, "Выберите библиотеку, в которой вы хотели бы найти книгу", reply_markup=markup)
+            bot.register_next_step_handler(message, choose_library)
+            k = 0
+            break
+        elif name_list[i].count(message.text) > 0 and date_list[i].count("-") == 1:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            again = types.KeyboardButton("🔄Попробовать еще раз")
+            back = types.KeyboardButton("⏪назад")
+            markup.add(again, back)
+            bot.send_message(message.chat.id, 'Скорее всего вы ищете книгу: ' + author_list[i] + ", " + name_list[i] + '\n' + "Эта книга есть в библиотеке им. Пушкина, вы можете прийти и забрать ее\n\n" + if_not_book, reply_markup=markup)
+            bot.register_next_step_handler(message, bot_message)
+            k = 0
+            break
+        elif name_list[i].count(message.text) > 0:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            again = types.KeyboardButton("🔄Попробовать еще раз")
+            back = types.KeyboardButton("⏪назад")
+            markup.add(again, back)
+            bot.send_message(message.chat.id, 'Скорее всего вы ищете книгу: ' + author_list[i] + ", " + name_list[i] + '\n' + "Эту книгу сейчас забрали, крайний срок ее возврата - " + date_list[i] + "\n\n" + if_not_book, reply_markup=markup)
+            bot.register_next_step_handler(message, bot_message)
+            k = 0
+            break
+        else:
+            k = 1
+    if k == 1:
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        again = types.KeyboardButton("🔄Попробовать еще раз")
+        back = types.KeyboardButton("⏪назад")
+        markup.add(again, back)
+        bot.send_message(message.chat.id, "Книги с таким названием в библиотеке им. Пушкина нет", reply_markup=markup)
+        bot.register_next_step_handler(message, bot_message)
+
+def get_book_herzen(message):
+    for i in range(quantity):
+        if message.text == "⏪назад":
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            push = types.KeyboardButton("Библиотека им. Пушкина")
+            herz = types.KeyboardButton("Библиотека им. Герцена")
+            gork = types.KeyboardButton("Библиотека им. Горького")
+            any = types.KeyboardButton("🏛Искать во всех библиотеках")
+            back = types.KeyboardButton("⏪назад")
+            markup.add(push)
+            markup.add(herz)
+            markup.add(gork)
+            markup.add(any)
+            markup.add(back)
+            bot.send_message(message.chat.id, "Выберите библиотеку, в которой вы хотели бы найти книгу", reply_markup=markup)
+            bot.register_next_step_handler(message, choose_library)
+            k = 0
+            break
+        elif name_list[i].count(message.text) > 0 and date_list[i].count("-") == 1:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            again = types.KeyboardButton("🔄Попробовать еще раз")
+            back = types.KeyboardButton("⏪назад")
+            markup.add(again, back)
+            bot.send_message(message.chat.id, 'Скорее всего вы ищете книгу: ' + author_list[i] + ", " + name_list[i] + '\n' + "Эта книга есть в библиотеке им. Герцена, вы можете прийти и забрать ее\n\n" + if_not_book,reply_markup=markup)
+            bot.register_next_step_handler(message, bot_message)
+            k = 0
+            break
+        elif name_list[i].count(message.text) > 0:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            again = types.KeyboardButton("🔄Попробовать еще раз")
+            back = types.KeyboardButton("⏪назад")
+            markup.add(again, back)
+            bot.send_message(message.chat.id, 'Скорее всего вы ищете книгу: ' + author_list[i] + ", " + name_list[i] + '\n' + "Эту книгу сейчас забрали, крайний срок ее возврата - " + date_list[i] + "\n\n" + if_not_book, reply_markup=markup)
+            bot.register_next_step_handler(message, bot_message)
+            k = 0
+            break
+        else:
+            k = 1
+    if k == 1:
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        again = types.KeyboardButton("🔄Попробовать еще раз")
+        back = types.KeyboardButton("⏪назад")
+        markup.add(again, back)
+        bot.send_message(message.chat.id, "Книги с таким названием в библиотеке им. Герцена нет", reply_markup=markup)
+        bot.register_next_step_handler(message, bot_message)
+
+def get_book_gorkov(message):
+    for i in range(quantity):
+        if message.text == "⏪назад":
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            push = types.KeyboardButton("Библиотека им. Пушкина")
+            herz = types.KeyboardButton("Библиотека им. Герцена")
+            gork = types.KeyboardButton("Библиотека им. Горького")
+            any = types.KeyboardButton("🏛Искать во всех библиотеках")
+            back = types.KeyboardButton("⏪назад")
+            markup.add(push)
+            markup.add(herz)
+            markup.add(gork)
+            markup.add(any)
+            markup.add(back)
+            bot.send_message(message.chat.id, "Выберите библиотеку, в которой вы хотели бы найти книгу", reply_markup=markup)
+            bot.register_next_step_handler(message, choose_library)
+            k = 0
+            break
+        elif name_list[i].count(message.text) > 0 and date_list[i].count("-") == 1:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            again = types.KeyboardButton("🔄Попробовать еще раз")
+            back = types.KeyboardButton("⏪назад")
+            markup.add(again, back)
+            bot.send_message(message.chat.id, 'Скорее всего вы ищете книгу: ' + author_list[i] + ", " + name_list[i] + '\n' + "Эта книга есть в библиотеке им. Горького, вы можете прийти и забрать ее\n\n" + if_not_book,reply_markup=markup)
+            bot.register_next_step_handler(message, bot_message)
+            k = 0
+            break
+        elif name_list[i].count(message.text) > 0:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            again = types.KeyboardButton("🔄Попробовать еще раз")
+            back = types.KeyboardButton("⏪назад")
+            markup.add(again, back)
+            bot.send_message(message.chat.id, 'Скорее всего вы ищете книгу: ' + author_list[i] + ", " + name_list[i] + '\n' + "Эту книгу сейчас забрали, крайний срок ее возврата - " + date_list[i] + "\n\n" + if_not_book, reply_markup=markup)
+            bot.register_next_step_handler(message, bot_message)
+            k = 0
+            break
+        else:
+            k = 1
+    if k == 1:
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        again = types.KeyboardButton("🔄Попробовать еще раз")
+        back = types.KeyboardButton("⏪назад")
+        markup.add(again, back)
+        bot.send_message(message.chat.id, "Книги с таким названием в библиотеке им. Горького нет", reply_markup=markup)
+        bot.register_next_step_handler(message, bot_message)
+
+
+def get_book_all(message):
+    biblio1 = codecs.open("biblio_pushkin.txt", encoding='utf-8')
+    biblio2 = codecs.open("biblio_herzen.txt", encoding='utf-8')
+    biblio3 = codecs.open("biblio_gorkov.txt", encoding='utf-8')
+    author_list_push = []
+    name_list_push = []
+    date_list_push = []
+    author_list_herz = []
+    name_list_herz = []
+    date_list_herz = []
+    author_list_gork = []
+    name_list_gork = []
+    date_list_gork = []
+    for i in range(quantity):
+        author, name, date = biblio1.readline().split('"')
+        author_list_push += [author]
+        name_list_push += [name]
+        date_list_push += [date]
+    for i in range(quantity):
+        author, name, date = biblio2.readline().split('"')
+        author_list_herz += [author]
+        name_list_herz += [name]
+        date_list_herz += [date]
+    for i in range(quantity):
+        author, name, date = biblio3.readline().split('"')
+        author_list_gork += [author]
+        name_list_gork += [name]
+        date_list_gork += [date]
+    msg = ''
+    if message.text == "⏪назад":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        push = types.KeyboardButton("Библиотека им. Пушкина")
+        herz = types.KeyboardButton("Библиотека им. Герцена")
+        gork = types.KeyboardButton("Библиотека им. Горького")
+        any = types.KeyboardButton("🏛Искать во всех библиотеках")
+        back = types.KeyboardButton("⏪назад")
+        markup.add(push)
+        markup.add(herz)
+        markup.add(gork)
+        markup.add(any)
+        markup.add(back)
+        bot.send_message(message.chat.id, "Выберите библиотеку, в которой вы хотели бы найти книгу", reply_markup=markup)
+        bot.register_next_step_handler(message, choose_library)
+    else:
+        for i in range(quantity):
+            if name_list_push[i].count(message.text) > 0 and date_list_push[i].count("-") == 1:
+                msg += 'Скорее всего вы ищете книгу: ' + author_list_push[i] + ", " + name_list_push[i] + '\n\n\n •Библиотека им. Пушкина: \n' + "  Эта книга есть в библиотеке, вы можете прийти и забрать ее\n\n"
+                k = 0
+                break
+            elif name_list_push[i].count(message.text) > 0:
+                msg += 'Скорее всего вы ищете книгу: ' + author_list_push[i] + ", " + name_list_push[i] + '\n\n\n •Библиотека им. Пушкина: \n' + "  Эту книгу сейчас забрали, крайний срок ее возврата - " + date_list_push[i] + "\n\n"
+                k = 0
+                break
+            else:
+                k = 1
+        if k == 1:
+            msg += 'Скорее всего вы ищете книгу: ' + "неизвестно"+ '\n\n\n •Библиотека им. Пушкина: \n' + "  Книги с таким названием в библиотеке нет\n\n"
+        k = 1
+        for i in range(quantity):
+            if name_list_herz[i].count(message.text) > 0 and date_list_herz[i].count("-") == 1:
+                msg += '•Библиотека им. Герцена: \n' + "  Эта книга есть в библиотеке, вы можете прийти и забрать ее\n\n"
+                k = 0
+                break
+            elif name_list_herz[i].count(message.text) > 0:
+                msg += '•Библиотека им. Герцена: \n' + "  Эту книгу сейчас забрали, крайний срок ее возврата - " + date_list_herz[i] + "\n"
+                k = 0
+                break
+            else:
+                k = 1
+        if k == 1:
+            msg += '•Библиотека им. Герцена: \n' + "  Книги с таким названием в библиотеке нет\n\n"
+        k = 1
+        for i in range(quantity):
+            if name_list_gork[i].count(message.text) > 0 and date_list_gork[i].count("-") == 1:
+                msg += '•Библиотека им. Горького: \n' + "  Эта книга есть в библиотеке, вы можете прийти и забрать ее\n\n\n"
+                k = 0
+                break
+            elif name_list_gork[i].count(message.text) > 0:
+                msg += '•Библиотека им. Горького: \n' + "  Эту книгу сейчас забрали, крайний срок ее возврата - " + date_list_gork[i] + "\n\n\n"
+                k = 0
+                break
+            else:
+                k = 1
+        if k == 1:
+            msg += '•Библиотека им. Горького: \n' + "  Книги с таким названием в библиотеке нет\n\n\n"
+
+        msg += if_not_book
+
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        again = types.KeyboardButton("🔄Попробовать еще раз")
+        back = types.KeyboardButton("⏪назад")
+        markup.add(again, back)
+        bot.send_message(message.chat.id, msg, reply_markup=markup)
+        bot.register_next_step_handler(message, bot_message)
+
+@bot.message_handler()
+def show_rating(message):
+    rate = open("rating.txt", encoding='utf-8')
+    author_rate_list = []
+    name_rate_list = []
+    rate_rate_list = []
+    cnt_rate_list = []
+    for i in range(quantity):
+        author, name, rates, cnt = rate.readline().split('"')
+        author_rate_list += [author]
+        name_rate_list += [name]
+        rate_rate_list += [rates]
+        cnt_rate_list += [cnt]
+    if message.text == "🎖Самые лучшие":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        another = types.KeyboardButton("🔄Выбрать другую категорию")
+        markup.add(another)
+        average_marks = []
+        msg = ""
+        for i in range(quantity):
+            average_marks += [round(int(rate_rate_list[i]) / int(cnt_rate_list[i]), 2)]
+        top_list = list(sorted(average_marks)[::-1])
+        for i in range(10):
+            for j in range(quantity):
+                if top_list[i] == average_marks[j]:
+                    msg += str(i + 1) + " место - " + author_rate_list[j] + ", " + name_rate_list[j] + " - средняя оценка: " + str(average_marks[j]) + "\n\n"
+                    average_marks[j] = -9999
+                    break
+        bot.send_message(message.chat.id, "ТОП - 10 книг:\n" + msg, reply_markup=markup)
+        bot.register_next_step_handler(message, bot_message)
+
+    if message.text == "👥Самые популярные":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        another = types.KeyboardButton("🔄Выбрать другую категорию")
+        markup.add(another)
+        save = []
+        msg = ""
+        for i in range(quantity):
+            save += [cnt_rate_list[i]]
+        top_list = list(sorted(cnt_rate_list)[::-1])
+        for i in range(10):
+            for j in range(quantity):
+                if top_list[i] == cnt_rate_list[j]:
+                    msg += str(i + 1) + " место - " + author_rate_list[j] + ", " + name_rate_list[j] + " -  всего оценок: " + str(cnt_rate_list[j]) + "\n"
+                    cnt_rate_list[j] = -9999
+                    break
+        for i in range(quantity):
+            cnt_rate_list[i] = save[i]
+        bot.send_message(message.chat.id, "ТОП - 10 книг:\n" + msg, reply_markup=markup)
+        bot.register_next_step_handler(message, bot_message)
+    if message.text == "⏪назад":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        find = types.KeyboardButton("📚Найти книгу")
+        mark = types.KeyboardButton("🌟Оставить оценку")
+        rating = types.KeyboardButton("📊Рейтинг")
+        rand = types.KeyboardButton("🎲Случайная книга")
+        help = types.KeyboardButton('❓Помощь и предложения')
+        game = types.KeyboardButton('🎯Викторина')
+        markup.add(find, mark, rating, rand, game)
+        markup.add(help)
+        bot.send_message(message.chat.id, "Вы снова в главном меню", reply_markup=markup)
+
+@bot.message_handler()
+def set_rating(message):
+    global i
+    rate = open("rating.txt", encoding='utf-8')
+    author_list = []
+    name_list = []
+    rate_list = []
+    cnt_list = []
+    for i in range(quantity):
+        author, name, rates, cnt = rate.readline().split('"')
+        author_list += [author]
+        name_list += [name]
+        rate_list += [rates]
+        cnt_list += [cnt]
+    for i in range(quantity):
+        if message.text == "⏪назад":
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            find = types.KeyboardButton("📚Найти книгу")
+            mark = types.KeyboardButton("🌟Оставить оценку")
+            rating = types.KeyboardButton("📊Рейтинг")
+            rand = types.KeyboardButton("🎲Случайная книга")
+            help = types.KeyboardButton('❓Помощь и предложения')
+            game = types.KeyboardButton('🎯Викторина')
+            markup.add(find, mark, rating, rand, game)
+            markup.add(help)
+            bot.send_message(message.chat.id, "Вы снова в главном меню", reply_markup=markup)
+            k = 0
+            break
+        elif name_list[i].count(message.text) > 0:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            back = types.KeyboardButton("⏪изменить название книги")
+            one = types.KeyboardButton("1")
+            two = types.KeyboardButton("2")
+            three = types.KeyboardButton("3")
+            four = types.KeyboardButton("4")
+            five = types.KeyboardButton("5")
+            markup.add(one, two, three, four, five)
+            markup.add(back)
+            bot.send_message(message.chat.id, 'Скорее всего вы ищите книгу: "' + author_list[i] + ", " + name_list[i] + '"\n' + "введите вашу оценку, от 1 до 5\n\n" + if_not_book, reply_markup=markup)
+            bot.register_next_step_handler(message, set_mark)
+            k = 0
+            break
+        else:
+            k = 1
+    if k == 1:
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        again = types.KeyboardButton("Выбрать другую книгу")
+        back = types.KeyboardButton("⏪назад")
+        markup.add(again, back)
+        bot.send_message(message.chat.id, "Книги с таким названием в нашей базе данных нет. Возможно, она появится в будущем", reply_markup=markup)
+        bot.register_next_step_handler(message, bot_message)
+
+@bot.message_handler()
+def set_mark(message):
+    global i
+    rate = open("rating.txt", encoding='utf-8')
+    author_list = []
+    name_list = []
+    rate_list = []
+    cnt_list = []
+    for j in range(quantity):
+        author, name, rates, cnt = rate.readline().split('"')
+        author_list += [author]
+        name_list += [name]
+        rate_list += [int(rates)]
+        cnt_list += [int(cnt)]
+    if message.text == "⏪изменить название книги":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        back = types.KeyboardButton("⏪назад")
+        markup.add(back)
+        bot.send_message(message.chat.id, "Введите название книги", reply_markup=markup)
+        bot.register_next_step_handler(message, set_rating)
+
+    else:
+        if message.text == "1" or message.text == "2" or message.text == "3" or message.text == "4" or message.text == "5":
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            back = types.KeyboardButton("⏪назад")
+            markup.add(back)
+            rate_list[i] += int(message.text)
+            cnt_list[i] += 1
+            bot.send_message(message.from_user.id, "Спасибо за вашу оценку ", reply_markup=markup)
+            rate = codecs.open("rating.txt", "w+", encoding='utf-8')
+            msg = []
+            for i in range(quantity):
+                msg += [author_list[i] + '"' + name_list[i] + '"' + str(rate_list[i]) + '"' + str(cnt_list[i]) + '\n']
+            rate.writelines(msg)
+            bot.register_next_step_handler(message, bot_message)
+        else:
+            bot.send_message(message.from_user.id, "Некорректный формат ввода. Пожалуйста введите число от 1 до 5")
+            bot.register_next_step_handler(message, set_mark)
+
+@bot.message_handler()
+def game1(message):
+    global rez
+    f = codecs.open("game.txt", encoding = 'utf-8')
+    string = f.readlines()
+    names = []
+    rezults = []
+    users = []
+    for i in string:
+        name, id, rezult = i.split('"')
+        names += [name]
+        users += [int(id)]
+        rezults += [int(rezult)]
+    first_time = True
+    for i in users:
+        if i == message.chat.id:
+            first_time = False
+    if message.text == "🎮Играть" and first_time:
+        rez = 0
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        ans1 = types.KeyboardButton("Горе от ума, А.С. Грибоедов")
+        ans2 = types.KeyboardButton("Обломов, И. Гончаров")
+        ans3 = types.KeyboardButton("Сто лет одиночества, М. Гарсия")
+        markup.add(ans1)
+        markup.add(ans2)
+        markup.add(ans3)
+        bot.send_message(message.chat.id, "Роман о том, как прокрастинация влияет на молодого барина и отбивает у него желание заниматься «бизнесом», путешествовать и делать предложение хорошенькой особе.", reply_markup=markup)
+        bot.register_next_step_handler(message, game2)
+    elif message.text == "🎮Играть":
+        bot.send_message(message.chat.id, "Извините, но вы не можете проходить тест дважды. Не беспокойтесь, ваш результат был сохранен.")
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        find = types.KeyboardButton("📚Найти книгу")
+        mark = types.KeyboardButton("🌟Оставить оценку")
+        rating = types.KeyboardButton("📊Рейтинг")
+        rand = types.KeyboardButton("🎲Случайная книга")
+        help = types.KeyboardButton('❓Помощь и предложения')
+        game = types.KeyboardButton('🎯Викторина')
+        markup.add(find, mark, rating, rand, game)
+        markup.add(help)
+        bot.send_message(message.chat.id, "Вы снова в главном меню", reply_markup=markup)
+        bot.register_next_step_handler(message, bot_message)
+    elif message.text == "✨Топ игроков":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        back = types.KeyboardButton("⏪назад")
+        markup.add(back)
+        users += [0] * 10
+        rezults += [0] * 10
+        names += ["empty"] * 10
+        top_list = []
+        save = []
+        msg = ""
+        for i in range(len(rezults)):
+            save += [rezults[i]]
+        top_list = list(sorted(rezults)[::-1])
+        for i in range(10):
+            for j in range(len(rezults)):
+                if top_list[i] == rezults[j]:
+                    msg += str(i + 1) + " место - " + names[j] + " -  правильных ответов: " + str(rezults[j]) + "\n"
+                    rezults[j] = -9999
+                    break
+        for i in range(len(rezults)):
+            rezults[i] = save[i]
+        bot.send_message(message.chat.id, "ТОП - 10 игроков:\n" + msg, reply_markup=markup)
+        bot.register_next_step_handler(message, bot_message)
+    elif message.text == "⏪назад":
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        find = types.KeyboardButton("📚Найти книгу")
+        mark = types.KeyboardButton("🌟Оставить оценку")
+        rating = types.KeyboardButton("📊Рейтинг")
+        rand = types.KeyboardButton("🎲Случайная книга")
+        help = types.KeyboardButton('❓Помощь и предложения')
+        game = types.KeyboardButton('🎯Викторина')
+        markup.add(find, mark, rating, rand, game)
+        markup.add(help)
+        bot.send_message(message.chat.id, "Вы снова в главном меню", reply_markup=markup)
+        bot.register_next_step_handler(message, bot_message)
+
+def game2(message):
+    global rez
+    if message.text == "Обломов, И. Гончаров":
+        bot.send_message(message.chat.id, "🎉🎉🎉\nПоздравляю, этo правильный ответ")
+        rez += 1
+    else:
+        bot.send_message(message.chat.id, "😔😔😔\nК сожалению, это неправильный ответ.\nПравильный ответ - Обломов, И. Гончаров")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    ans1 = types.KeyboardButton("Город и лес у моря, В. Бианки")
+    ans2 = types.KeyboardButton("В Южных морях, Р. Стивенсон")
+    ans3 = types.KeyboardButton("Старик и море, Э. Хэмингуэй")
+    markup.add(ans1)
+    markup.add(ans2)
+    markup.add(ans3)
+    bot.send_message(message.chat.id, "Рыбак в возрасте отправляется на морскую охоту. Пойманная добыча слишком велика. Она не помещается в лодку, а на рыбака нападают акулы.", reply_markup=markup)
+    bot.register_next_step_handler(message, game3)
+
+def game3(message):
+    global rez
+    if message.text == "Старик и море, Э. Хэмингуэй":
+        bot.send_message(message.chat.id, "🎉🎉🎉\nПоздравляю, этo правильный ответ")
+        rez += 1
+    else:
+        bot.send_message(message.chat.id, "😔😔😔\nК сожалению, это неправильный ответ.\nПравильный ответ - Старик и море, Э. Хэмингуэй")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    ans1 = types.KeyboardButton("Анна Каренина, Л.Н. Толстой")
+    ans2 = types.KeyboardButton("Мадам Бовари, Г. Флобер")
+    ans3 = types.KeyboardButton("Унесенный ветром, М. Митчелл")
+    markup.add(ans1)
+    markup.add(ans2)
+    markup.add(ans3)
+    bot.send_message(message.chat.id, "Замужество не помешало ей завести роман на стороне. Отношения с любовником зашли в тупик. Дама пристрастилась к наркотическим веществам, а после бросилась под поезд.", reply_markup=markup)
+    bot.register_next_step_handler(message, game4)
+
+def game4(message):
+    global rez
+    if message.text == "Анна Каренина, Л.Н. Толстой":
+        bot.send_message(message.chat.id, "🎉🎉🎉\nПоздравляю, этo правильный ответ")
+        rez += 1
+    else:
+        bot.send_message(message.chat.id, "😔😔😔\nК сожалению, это неправильный ответ.\nПравильный ответ - Анна Каренина, Л.Н. Толстой")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    ans1 = types.KeyboardButton("«Детство. Отрочество. Юность.», Л.Н. Толстой")
+    ans2 = types.KeyboardButton("Над пропастью во ржи, Д.Сэлинджер")
+    ans3 = types.KeyboardButton("Вино из одуванчиков, Р. Брэдбери")
+    markup.add(ans1)
+    markup.add(ans2)
+    markup.add(ans3)
+    bot.send_message(message.chat.id, "Юный парень ненавидит лицемерие и испытывает нежные братские чувства к сестре и другим детишкам. Пока он мечтает о прогулках с ребятней в полях, его отчисляют из школы.\n\nОт лица автора этого бота, отдельно рекомендую к прочтению данную книгу😉", reply_markup=markup)
+    bot.register_next_step_handler(message, game5)
+
+def game5(message):
+    global rez
+    if message.text == "Над пропастью во ржи, Д.Сэлинджер":
+        bot.send_message(message.chat.id, "🎉🎉🎉\nПоздравляю, этo правильный ответ")
+        rez += 1
+    else:
+        bot.send_message(message.chat.id, "😔😔😔\nК сожалению, это неправильный ответ.\nПравильный ответ - Над пропастью во ржи, Д.Сэлинджер")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    ans1 = types.KeyboardButton("Убить пересмешника, Х. Ли")
+    ans2 = types.KeyboardButton("Десят негритят, А. Кристи")
+    ans3 = types.KeyboardButton("Зеленая миля, С. Кинг")
+    markup.add(ans1)
+    markup.add(ans2)
+    markup.add(ans3)
+    bot.send_message(message.chat.id, 'История о чернокожем парне, погибшем при попытке сбежать из тюрьмы, куда его незаслуженно посадили за "насилие". А также о робком, пугливом чудаке, спасшем американских детей от нападения.', reply_markup=markup)
+    bot.register_next_step_handler(message, game6)
+
+def game6(message):
+    global rez
+    if message.text == "Убить пересмешника, Х. Ли":
+        bot.send_message(message.chat.id, "🎉🎉🎉\nПоздравляю, этo правильный ответ")
+        rez += 1
+    else:
+        bot.send_message(message.chat.id, "😔😔😔\nК сожалению, это неправильный ответ.\nПравильный ответ - Убить пересмешника, Х. Ли")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    ans1 = types.KeyboardButton("Ася, И.С. Тургенев")
+    ans2 = types.KeyboardButton("Евгений Онегин, А.С. Пушкин")
+    ans3 = types.KeyboardButton("Бедная Лиза, Н. Карамзин")
+    markup.add(ans1)
+    markup.add(ans2)
+    markup.add(ans3)
+    bot.send_message(message.chat.id, 'В этом романе автор поднимает вопрос о том, стоит ли женщине делать первый шаг, не дожидаясь признания в любви от мужчины.', reply_markup=markup)
+    bot.register_next_step_handler(message, game7)
+
+def game7(message):
+    global rez
+    if message.text == "Евгений Онегин, А.С. Пушкин":
+        rez += 1
+        bot.send_message(message.chat.id, "🎉🎉🎉\nПоздравляю, этo правильный ответ")
+    else:
+        bot.send_message(message.chat.id, "😔😔😔\nК сожалению, это неправильный ответ.\nПравильный ответ - Евгений Онегин, А.С. Пушкин")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    ans1 = types.KeyboardButton("Гранатовый браслет, А.И. Куприн")
+    ans2 = types.KeyboardButton("Жизнь взаймы, Э.М. Ремарк")
+    ans3 = types.KeyboardButton("Шинель, Н. Гоголь")
+    markup.add(ans1)
+    markup.add(ans2)
+    markup.add(ans3)
+    bot.send_message(message.chat.id,'История о том, как мелкий служащий приобрел и потерял один предмет гардероба, после чего умер и стал призраком.',reply_markup=markup)
+    bot.register_next_step_handler(message, game8)
+
+def game8(message):
+    global rez
+    if message.text == "Шинель, Н. Гоголь":
+        rez += 1
+        bot.send_message(message.chat.id, "🎉🎉🎉\nПоздравляю, этo правильный ответ")
+    else:
+        bot.send_message(message.chat.id, "😔😔😔\nК сожалению, это неправильный ответ.\nПравильный ответ - Шинель, Н. Гоголь")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    ans1 = types.KeyboardButton("Портрет Дориана Грея, О. Уайльд")
+    ans2 = types.KeyboardButton("Шагреневая кожа, О. Бальзак")
+    ans3 = types.KeyboardButton("Великий Гэтсби, Ф.С. Фицджеральд")
+    markup.add(ans1)
+    markup.add(ans2)
+    markup.add(ans3)
+    bot.send_message(message.chat.id,'Молодой человек внезапно получает подарок из натурального материала. Предмет исполняет любые желания, предварительно уменьшаясь и сокращая жизнь главного персонажа. В итоге герой получает богатства и благосклонность состоятельных дам, понимает, что истинная любовь всегда была рядом, и умирает.',reply_markup=markup)
+    bot.register_next_step_handler(message, game9)
+
+def game9(message):
+    global rez
+    if message.text == "Шагреневая кожа, О. Бальзак":
+        rez += 1
+        bot.send_message(message.chat.id, "🎉🎉🎉\nПоздравляю, этo правильный ответ")
+    else:
+        bot.send_message(message.chat.id, "😔😔😔\nК сожалению, это неправильный ответ.\nПравильный ответ - Шагреневая кожа, О. Бальзак")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    ans1 = types.KeyboardButton("Война и мир, Л.Н. Толстой")
+    ans2 = types.KeyboardButton("Горе от ума, А.С. Грибоедов")
+    ans3 = types.KeyboardButton("Униженные и оскорбленные, Ф.М. Достоевский")
+    markup.add(ans1)
+    markup.add(ans2)
+    markup.add(ans3)
+    bot.send_message(message.chat.id,'Сквозь военные действия, потери и перипетии несколько русских пар находят друг друга и составляют удачные партии.',reply_markup=markup)
+    bot.register_next_step_handler(message, game10)
+
+def game10(message):
+    global rez
+    if message.text == "Война и мир, Л.Н. Толстой":
+        rez += 1
+        bot.send_message(message.chat.id, "🎉🎉🎉\nПоздравляю, этo правильный ответ")
+    else:
+        bot.send_message(message.chat.id, "😔😔😔\nК сожалению, это неправильный ответ.\nПравильный ответ - Война и мир, Л.Н. Толстой")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    ans1 = types.KeyboardButton("Царь Эдип, Софокл")
+    ans2 = types.KeyboardButton("Отцы и дети, И.С. Тургенев")
+    ans3 = types.KeyboardButton("Гамлет, У. Шекспир")
+    markup.add(ans1)
+    markup.add(ans2)
+    markup.add(ans3)
+    bot.send_message(message.chat.id,'Главный герой видит призрак отца. Его возлюбленная становится сумасшедшей. В итоге все умирают.',reply_markup=markup)
+    bot.register_next_step_handler(message, end)
+
+def end(message):
+    global rez
+    if message.text == "Гамлет, У. Шекспир":
+        rez += 1
+        bot.send_message(message.chat.id, "🎉🎉🎉\nПоздравляю, этo правильный ответ")
+    else:
+        bot.send_message(message.chat.id, "😔😔😔\nК сожалению, это неправильный ответ.\nПравильный ответ - Гамлет, У. Шекспир")
+    if rez>7:
+        bot.send_message(message.chat.id, "Вау, молодец! Ты отлично знаешь очень много книг.\nВсего правильных ответов - " + str(rez))
+    elif rez>4:
+        bot.send_message(message.chat.id, "Могло быть и лучше, но ты все равно молодец! Советую тебе прочитать книги, которые ты не смог угадать. Обещаю, это будет очень интересно!\nВсего правильных ответов - " + str(rez))
+    else:
+        bot.send_message(message.chat.id, "Ой-ой! Не нужно было спать на уроках литературы!\nВсего правильных ответов - " + str(rez))
+    top = codecs.open("game.txt", 'a', encoding='utf-8')
+    top.write('\n' + message.from_user.first_name + '"' + str(message.chat.id) + '"' + str(rez) + '\n')
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    find = types.KeyboardButton("📚Найти книгу")
+    mark = types.KeyboardButton("🌟Оставить оценку")
+    rating = types.KeyboardButton("📊Рейтинг")
+    rand = types.KeyboardButton("🎲Случайная книга")
+    help = types.KeyboardButton('❓Помощь и предложения')
+    game = types.KeyboardButton('🎯Викторина')
+    markup.add(find, mark, rating, rand, game)
+    markup.add(help)
+    bot.send_message(message.chat.id, "Вы снова в главном меню", reply_markup=markup)
+    bot.register_next_step_handler(message, bot_message)
+bot.polling(none_stop=True)
